@@ -172,7 +172,7 @@ function StorePopover({
           return (
             <button
               key={store.id}
-              onPointerDown={(e) => { e.stopPropagation(); onToggle(store.id); }}
+              onClick={(e) => { e.stopPropagation(); onToggle(store.id); }}
               className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-sm transition-colors text-left"
               style={{ background: active ? store.color + "22" : "transparent" }}
             >
@@ -197,7 +197,7 @@ function StorePopover({
           }}
         />
         <button
-          onPointerDown={(e) => { e.stopPropagation(); if (newName.trim()) { onCreateStore(newName.trim()); setNewName(""); } }}
+          onClick={(e) => { e.stopPropagation(); if (newName.trim()) { onCreateStore(newName.trim()); setNewName(""); } }}
           disabled={!newName.trim()}
           className="px-2.5 py-1.5 rounded text-xs font-semibold"
           style={{ background: newName.trim() ? "var(--amber)" : "var(--surface)", color: newName.trim() ? "#0d1117" : "var(--text-muted)" }}
