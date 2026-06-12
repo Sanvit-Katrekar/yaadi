@@ -371,7 +371,11 @@ export function useAppState() {
 
   const addStore = useCallback(async (name: string): Promise<Store> => {
     const id = Math.random().toString(36).slice(2);
-    const color = STORE_COLORS[state.stores.length % STORE_COLORS.length];
+    const used = new Set(state.stores.map(s => s.color));
+
+    const color =
+      STORE_COLORS.find(c => !used.has(c))
+      ?? STORE_COLORS[state.stores.length % STORE_COLORS.length];
     const store: Store = { id, name, color };
     // Optimistic
     setState((prev) => ({ ...prev, stores: [...prev.stores, store] }));
