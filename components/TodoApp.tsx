@@ -664,7 +664,7 @@ function StoreFilterBar({
             </button>
             <button
               onClick={() => handleDeleteStore(store)}
-              className="opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity flex items-center justify-center w-6 h-6 rounded-full"
+              className="opacity-50 group-hover:opacity-60 hover:!opacity-100 transition-opacity flex items-center justify-center w-6 h-6 rounded-full"
               style={{ color: "var(--red)" }}
             >
               ✕
