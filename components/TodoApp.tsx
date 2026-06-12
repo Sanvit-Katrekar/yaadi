@@ -100,12 +100,21 @@ function StorePopover({
     if (!anchorRef.current) return;
     const rect = anchorRef.current.getBoundingClientRect();
     const spaceRight = window.innerWidth - rect.right;
+    const spaceBelow = window.innerHeight - rect.bottom - 80; // 80px for browser chrome
+    const spaceAbove = rect.top;
+    const POPOVER_HEIGHT = 320;
+
+    const openUpward = spaceBelow < POPOVER_HEIGHT && spaceAbove > spaceBelow;
+    const top = openUpward
+      ? rect.top - POPOVER_HEIGHT - 6
+      : rect.bottom + 6;
+
     if (window.innerWidth < 640) {
-      setCoords({ top: rect.bottom + 6, left: Math.max(8, Math.min(rect.left, window.innerWidth - 272)) });
+      setCoords({ top, left: Math.max(8, Math.min(rect.left, window.innerWidth - 272)) });
     } else if (spaceRight >= 264) {
-      setCoords({ top: rect.bottom + 6, left: rect.left });
+      setCoords({ top, left: rect.left });
     } else {
-      setCoords({ top: rect.bottom + 6, right: spaceRight });
+      setCoords({ top, right: spaceRight });
     }
   }, [anchorRef]);
 
@@ -145,7 +154,7 @@ function StorePopover({
         border: "1px solid var(--border)",
         top: coords.top,
         maxWidth: "calc(100vw - 16px)",
-        maxHeight: `calc(100vh - ${coords.top + 8}px)`,
+        maxHeight: "60vh",
         overflow: "hidden",
         ...(coords.left !== undefined ? { left: coords.left } : { right: coords.right }),
       }}
