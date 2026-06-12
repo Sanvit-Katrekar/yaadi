@@ -145,6 +145,8 @@ function StorePopover({
         border: "1px solid var(--border)",
         top: coords.top,
         maxWidth: "calc(100vw - 16px)",
+        maxHeight: `calc(100vh - ${coords.top + 8}px)`,
+        overflow: "hidden",
         ...(coords.left !== undefined ? { left: coords.left } : { right: coords.right }),
       }}
       onTouchStart={(e) => e.stopPropagation()}
