@@ -165,9 +165,15 @@ export function useAppState() {
     const built = buildState(
       lists ?? [], sections ?? [], items ?? [], itemStores ?? [], stores ?? [], listStores ?? []
     );
+
+    const savedId = localStorage.getItem("activeListId");
+    const validId = savedId && built.lists.find(l => l.id === savedId)
+      ? savedId
+      : built.lists[0]?.id ?? null;
+
     setState((prev) => ({
       ...built,
-      activeListId: prev.activeListId ?? built.lists[0]?.id ?? null,
+      activeListId: prev.activeListId ?? validId,
     }));
     setMounted(true);
   }, []);
@@ -191,6 +197,7 @@ export function useAppState() {
   // ─── List actions ─────────────────────────────────────────────────────────
 
   const setActiveList = useCallback((id: string) => {
+    localStorage.setItem("activeListId", id);
     setState((prev) => ({ ...prev, activeListId: id }));
   }, []);
 
