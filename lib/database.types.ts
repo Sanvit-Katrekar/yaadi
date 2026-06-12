@@ -79,6 +79,36 @@ export type Database = {
           },
         ]
       }
+      list_stores: {
+        Row: {
+          list_id: string
+          store_id: string
+        }
+        Insert: {
+          list_id: string
+          store_id: string
+        }
+        Update: {
+          list_id?: string
+          store_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "list_stores_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "lists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "list_stores_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lists: {
         Row: {
           created_at: string

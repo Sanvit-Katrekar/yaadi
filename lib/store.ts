@@ -22,12 +22,12 @@ export interface SectionWithStores extends Omit<Section, "items"> {
 
 export interface TodoListWithStores extends Omit<TodoList, "sections"> {
   sections: SectionWithStores[];
+  stores: Store[]; // move here
 }
 
 interface AppState {
   lists: TodoListWithStores[];
   activeListId: string | null;
-  stores: Store[];
 }
 
 const STORE_COLORS = [
@@ -40,9 +40,21 @@ function buildState(
   rawSections: any[],
   rawItems: any[],
   rawItemStores: any[],
-  rawStores: any[]
-): { lists: TodoListWithStores[]; stores: Store[] } {
-  const stores: Store[] = rawStores.map((r) => ({ id: r.id, name: r.name, color: r.color }));
+  rawStores: any[],
+  rawListStores: any[]
+): { lists: TodoListWithStores[] } {
+
+  const allStores: Record<string, Store> = {};
+  for (const r of rawStores) {
+    allStores[r.id] = { id: r.id, name: r.name, color: r.color };
+  }
+
+  const storesByList: Record<string, Store[]> = {};
+  for (const row of rawListStores) {
+    if (!storesByList[row.list_id]) storesByList[row.list_id] = [];
+    const store = allStores[row.store_id];
+    if (store) storesByList[row.list_id].push(store);
+  }
 
   const storesByItem: Record<string, string[]> = {};
   for (const row of rawItemStores) {
@@ -89,17 +101,18 @@ function buildState(
       sections: sectionsByList[row.id] ?? [],
       createdAt: new Date(row.created_at).getTime(),
       updatedAt: new Date(row.updated_at).getTime(),
+      stores: storesByList[row.id] ?? []
     }))
     .sort((a, b) => a.createdAt - b.createdAt);
 
-  return { lists, stores };
+  return { lists };
 }
 
 const lastMutationAt = { current: 0 };
 const GRACE_MS = 3000;
 
 export function useAppState() {
-  const [state, setState] = useState<AppState>({ lists: [], activeListId: null, stores: [] });
+  const [state, setState] = useState<AppState>({ lists: [], activeListId: null });
   const [mounted, setMounted] = useState(false);
   const channelRef = useRef<RealtimeChannel | null>(null);
 
@@ -133,12 +146,14 @@ export function useAppState() {
       { data: items },
       { data: itemStores },
       { data: stores },
+      { data: listStores }
     ] = await Promise.all([
       supabase.from("lists").select("*"),
       supabase.from("sections").select("*"),
       supabase.from("items").select("*"),
       supabase.from("item_stores").select("*"),
       supabase.from("stores").select("*"),
+      supabase.from("list_stores").select("*")
     ]);
 
     // Re-read fresh after the async gap
@@ -148,7 +163,7 @@ export function useAppState() {
     }
 
     const built = buildState(
-      lists ?? [], sections ?? [], items ?? [], itemStores ?? [], stores ?? []
+      lists ?? [], sections ?? [], items ?? [], itemStores ?? [], stores ?? [], listStores ?? []
     );
     setState((prev) => ({
       ...built,
@@ -167,6 +182,7 @@ export function useAppState() {
       .on("postgres_changes", { event: "*", schema: "public", table: "items" }, () => loadAll())
       .on("postgres_changes", { event: "*", schema: "public", table: "item_stores" }, () => loadAll())
       .on("postgres_changes", { event: "*", schema: "public", table: "stores" }, () => loadAll())
+      .on("postgres_changes", { event: "*", schema: "public", table: "list_stores" }, () => loadAll())
       .subscribe();
     channelRef.current = channel;
     return () => { supabase.removeChannel(channel); };
@@ -181,6 +197,7 @@ export function useAppState() {
   const addList = useCallback(async (list: TodoList) => {
     const listWithStores: TodoListWithStores = {
       ...list,
+      stores: [],
       sections: list.sections.map((s) => ({
         ...s,
         items: s.items.map((i) => ({ ...i, storeIds: [] })),
@@ -369,36 +386,51 @@ export function useAppState() {
 
   // ─── Store actions ────────────────────────────────────────────────────────
 
-  const addStore = useCallback(async (name: string): Promise<Store> => {
+  const addStore = useCallback(async (name: string, listId: string): Promise<Store> => {
     const id = Math.random().toString(36).slice(2);
-    const used = new Set(state.stores.map(s => s.color));
-
+    
+    // Get stores from the target list instead of state.stores
+    const listStores = state.lists.find(l => l.id === listId)?.stores ?? [];
+    const used = new Set(listStores.map(s => s.color));
     const color =
       STORE_COLORS.find(c => !used.has(c))
-      ?? STORE_COLORS[state.stores.length % STORE_COLORS.length];
+      ?? STORE_COLORS[listStores.length % STORE_COLORS.length];
+    
     const store: Store = { id, name, color };
-    // Optimistic
-    setState((prev) => ({ ...prev, stores: [...prev.stores, store] }));
 
-    await withPending(async () => supabase.from("stores").insert({ id, name, color }));
-    return store;
-  }, [withPending, state.stores.length]);
-
-  const deleteStore = useCallback(async (storeId: string) => {
-    // Optimistic
     setState((prev) => ({
       ...prev,
-      stores: prev.stores.filter((s) => s.id !== storeId),
-      lists: prev.lists.map((l) => ({
+      lists: prev.lists.map((l) => l.id !== listId ? l : {
+        ...l, stores: [...l.stores, store],
+      }),
+    }));
+
+    await withPending(async () => {
+      await supabase.from("stores").insert({ id, name, color });
+      await supabase.from("list_stores").insert({ list_id: listId, store_id: id });
+    });
+    return store;
+  }, [withPending, state.lists]);
+
+  const deleteStore = useCallback(async (storeId: string, listId: string) => {
+    setState((prev) => ({
+      ...prev,
+      lists: prev.lists.map((l) => l.id !== listId ? l : {
         ...l,
+        stores: l.stores.filter((s) => s.id !== storeId),
         sections: l.sections.map((s) => ({
           ...s,
           items: s.items.map((i) => ({ ...i, storeIds: i.storeIds.filter((sid) => sid !== storeId) })),
         })),
-      })),
+      }),
     }));
 
-    await withPending(async () => supabase.from("stores").delete().eq("id", storeId));
+    await withPending(async () =>
+      supabase.from("list_stores")
+        .delete()
+        .eq("list_id", listId)
+        .eq("store_id", storeId)
+    );
   }, [withPending]);
 
   const toggleItemStore = useCallback(async (

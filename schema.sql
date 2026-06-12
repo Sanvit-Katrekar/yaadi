@@ -1,6 +1,6 @@
 -- ============================================================
---  Yaadi – Supabase schema (with store tags)
---  Run this once in the Supabase SQL editor.
+--  Yaadi – Supabase schema
+--  Run this once on a fresh project.
 -- ============================================================
 
 -- Lists
@@ -31,7 +31,7 @@ create table if not exists public.items (
   position     integer not null default 0
 );
 
--- Stores (global tag definitions)
+-- Stores (global definitions)
 create table if not exists public.stores (
   id         text primary key,
   name       text not null,
@@ -39,18 +39,27 @@ create table if not exists public.stores (
   created_at timestamptz not null default now()
 );
 
--- Item ↔ Store join table (many-to-many)
+-- Item ↔ Store (many-to-many)
 create table if not exists public.item_stores (
   item_id  text not null references public.items(id) on delete cascade,
   store_id text not null references public.stores(id) on delete cascade,
   primary key (item_id, store_id)
 );
 
+-- List ↔ Store (many-to-many)
+create table if not exists public.list_stores (
+  list_id  text not null references public.lists(id) on delete cascade,
+  store_id text not null references public.stores(id) on delete cascade,
+  primary key (list_id, store_id)
+);
+
 -- ── Indexes ──────────────────────────────────────────────────
-create index if not exists sections_list_id_idx    on public.sections(list_id);
-create index if not exists items_section_id_idx    on public.items(section_id);
-create index if not exists item_stores_item_idx    on public.item_stores(item_id);
-create index if not exists item_stores_store_idx   on public.item_stores(store_id);
+create index if not exists sections_list_id_idx  on public.sections(list_id);
+create index if not exists items_section_id_idx  on public.items(section_id);
+create index if not exists item_stores_item_idx  on public.item_stores(item_id);
+create index if not exists item_stores_store_idx on public.item_stores(store_id);
+create index if not exists list_stores_list_idx  on public.list_stores(list_id);
+create index if not exists list_stores_store_idx on public.list_stores(store_id);
 
 -- ── Auto-update updated_at on lists ─────────────────────────
 create or replace function public.set_updated_at()
@@ -72,3 +81,4 @@ alter publication supabase_realtime add table public.sections;
 alter publication supabase_realtime add table public.items;
 alter publication supabase_realtime add table public.stores;
 alter publication supabase_realtime add table public.item_stores;
+alter publication supabase_realtime add table public.list_stores;

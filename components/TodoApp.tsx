@@ -700,6 +700,16 @@ export default function TodoApp() {
     [state]
   );
 
+  const createStore = useCallback(
+    (name: string) => addStore(name, activeList!.id),
+    [activeList?.id, addStore]
+  );
+
+  const removeStore = useCallback(
+    (storeId: string) => deleteStore(storeId, activeList!.id),
+    [activeList?.id, deleteStore]
+  );
+
   useEffect(() => { setActiveStoreFilter(null); }, [state.activeListId]);
 
   const filteredSections = useMemo(() => {
@@ -864,10 +874,10 @@ export default function TodoApp() {
 
         {activeList && (
           <StoreFilterBar
-            stores={state.stores}
+            stores={activeList.stores}
             activeFilter={activeStoreFilter}
             onSelect={setActiveStoreFilter}
-            onDeleteStore={deleteStore}
+            onDeleteStore={removeStore}
           />
         )}
 
@@ -889,7 +899,7 @@ export default function TodoApp() {
               {activeStoreFilter && filteredSections.every((s) => s.items.filter((i) => i.storeIds.includes(activeStoreFilter!)).length === 0) && (
                 <div className="flex flex-col items-center justify-center h-32 gap-2 text-center">
                   <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-                    No items tagged with "{state.stores.find((s) => s.id === activeStoreFilter)?.name}".
+                    No items tagged with "{activeList.stores.find((s) => s.id === activeStoreFilter)?.name}".
                   </p>
                   <p className="text-xs" style={{ color: "var(--text-muted)" }}>Tap 🏪 on any item to tag it.</p>
                 </div>
@@ -918,14 +928,14 @@ export default function TodoApp() {
                     key={section.id}
                     section={section}
                     listId={activeList.id}
-                    stores={state.stores}
+                    stores={activeList.stores}
                     activeStoreFilter={activeStoreFilter}
                     onToggle={(sId, iId) => toggleItem(activeList.id, sId, iId)}
                     onAddItem={(sId, text) => addItem(activeList.id, sId, text)}
                     onDeleteItem={(sId, iId) => deleteItem(activeList.id, sId, iId)}
                     onDeleteSection={(sId) => deleteSection(activeList.id, sId)}
                     onToggleStore={(sId, iId, storeId) => toggleItemStore(activeList.id, sId, iId, storeId)}
-                    onCreateStore={addStore}
+                    onCreateStore={createStore}
                     onToggleDoNotCarry={(sId, iId) => toggleDoNotCarry(activeList.id, sId, iId)}
                   />
                 ))}
