@@ -130,13 +130,30 @@ Access is restricted via magic link. Only users with a valid invite URL can view
 
 ## Getting Started
 
-#### Set up env
+#### Environment Variables
+
+Create a `.env.local` file (or configure these variables in your hosting provider):
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=xxxxx
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=xxxxx
-ACCESS_TOKEN=xxxxx
+# Supabase project URL
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+
+# Supabase publishable (anon) key
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_publishable_key
+
+# Secret token used to grant access to the site
+ACCESS_TOKEN=your_secret_token
+
+# Production cookie domain (optional)
+# Example: example.com
+COOKIE_DOMAIN=your_domain
 ```
+
+**Notes**:
+
+- `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` are exposed to the browser and are safe to use on the client.
+- `ACCESS_TOKEN` should remain secret and must never be exposed to users.
+- `COOKIE_DOMAIN` is only required in production when serving the app from a custom domain. Leave it unset for local development.
 
 #### Run server
 
