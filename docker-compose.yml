@@ -1,0 +1,7 @@
+services:
+  yaadi:
+    build: .
+    container_name: yaadi
+    ports:
+      - "3004:3000"
+    restart: always
