@@ -149,7 +149,20 @@ function StorePopover({
       }}
       onTouchStart={(e) => e.stopPropagation()}
     >
-      <div className="text-xs font-semibold mb-2" style={{ color: "var(--text-muted)" }}>TAG STORE</div>
+      
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>TAG STORE</div>
+        <button
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            onClose();
+          }}
+          className="flex items-center justify-center w-5 h-5 rounded transition-colors text-orange-100 hover:text-orange-300"
+        >
+          ✕
+        </button>
+      </div>
+      
       {stores.length === 0 && (
         <p className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>No stores yet — create one below.</p>
       )}
