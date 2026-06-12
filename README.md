@@ -130,6 +130,10 @@ Access is restricted via magic link. Only users with a valid invite URL can view
 
 ## Getting Started
 
+#### Supabase Project Setup
+
+Paste the contents of [schema.sql](schema.sql) in the Supabase SQL editor.
+
 #### Environment Variables
 
 Create a `.env.local` file (or configure these variables in your hosting provider):
