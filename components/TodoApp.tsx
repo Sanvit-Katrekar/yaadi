@@ -94,29 +94,27 @@ function StorePopover({
 }) {
   const [newName, setNewName] = useState("");
   const popoverRef = useRef<HTMLDivElement>(null);
-  const [coords, setCoords] = useState<{ top: number; right?: number; left?: number } | null>(null);
+  const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const dragStartRef = useRef<{ pointerX: number; pointerY: number; top: number; left: number } | null>(null);
 
   const updateCoords = useCallback(() => {
+    // Only set initial coords — don't override if user has dragged
+    if (coords !== null) return;
     if (!anchorRef.current) return;
     const rect = anchorRef.current.getBoundingClientRect();
     const spaceRight = window.innerWidth - rect.right;
-    const spaceBelow = window.innerHeight - rect.bottom - 80; // 80px for browser chrome
-    const spaceAbove = rect.top;
-    const POPOVER_HEIGHT = 320;
-
-    const openUpward = spaceBelow < POPOVER_HEIGHT && spaceAbove > spaceBelow;
-    const top = openUpward
-      ? rect.top - POPOVER_HEIGHT - 6
-      : rect.bottom + 6;
-
+    const top = rect.bottom + 6;
+    let left: number;
     if (window.innerWidth < 640) {
-      setCoords({ top, left: Math.max(8, Math.min(rect.left, window.innerWidth - 272)) });
+      left = Math.max(8, Math.min(rect.left, window.innerWidth - 272));
     } else if (spaceRight >= 264) {
-      setCoords({ top, left: rect.left });
+      left = rect.left;
     } else {
-      setCoords({ top, right: spaceRight });
+      left = window.innerWidth - 272 - 8;
     }
-  }, [anchorRef]);
+    setCoords({ top, left });
+  }, [anchorRef, coords]);
 
   useEffect(() => {
     updateCoords();
@@ -130,6 +128,7 @@ function StorePopover({
 
   useEffect(() => {
     function handleOutside(e: MouseEvent | TouchEvent) {
+      if (dragging) return;
       const target = e instanceof TouchEvent ? e.touches[0]?.target : e.target;
       if (!target) return;
       if (popoverRef.current?.contains(target as Node) || anchorRef.current?.contains(target as Node)) return;
@@ -141,80 +140,137 @@ function StorePopover({
       document.removeEventListener("mousedown", handleOutside);
       document.removeEventListener("touchstart", handleOutside);
     };
-  }, [onClose, anchorRef]);
+  }, [onClose, anchorRef, dragging]);
+
+  // ── Drag handlers ──────────────────────────────────────────
+  function onDragStart(e: React.PointerEvent) {
+    if (!coords) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragStartRef.current = { pointerX: e.clientX, pointerY: e.clientY, top: coords.top, left: coords.left };
+    setDragging(true);
+  }
+
+  function onDragMove(e: React.PointerEvent) {
+    if (!dragStartRef.current) return;
+    const dx = e.clientX - dragStartRef.current.pointerX;
+    const dy = e.clientY - dragStartRef.current.pointerY;
+    const newTop = Math.max(8, Math.min(window.innerHeight - 100, dragStartRef.current.top + dy));
+    const newLeft = Math.max(8, Math.min(window.innerWidth - 272, dragStartRef.current.left + dx));
+    setCoords({ top: newTop, left: newLeft });
+  }
+
+  function onDragEnd() {
+    dragStartRef.current = null;
+    // Small timeout so the pointerup doesn't immediately trigger onClose
+    setTimeout(() => setDragging(false), 50);
+  }
 
   if (!coords) return null;
+
+  const maxHeight = window.innerHeight - coords.top - 24;
 
   return ReactDOM.createPortal(
     <div
       ref={popoverRef}
-      className="fixed z-[9999] rounded-xl shadow-xl p-3 w-64"
+      className="fixed z-[9999] rounded-xl shadow-xl w-64"
       style={{
         background: "var(--surface-elevated)",
         border: "1px solid var(--border)",
         top: coords.top,
+        left: coords.left,
         maxWidth: "calc(100vw - 16px)",
-        maxHeight: "60vh",
-        overflow: "hidden",
-        ...(coords.left !== undefined ? { left: coords.left } : { right: coords.right }),
+        maxHeight: `${Math.max(160, maxHeight)}px`,
+        display: "flex",
+        flexDirection: "column",
+        userSelect: "none",
       }}
       onTouchStart={(e) => e.stopPropagation()}
     >
-      
-      <div className="flex items-center justify-between mb-2">
-        <div className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>TAG STORE</div>
+      {/* Drag handle / header */}
+      <div
+        className="flex items-center justify-between px-3 pt-3 pb-2 shrink-0 cursor-grab active:cursor-grabbing rounded-t-xl"
+        style={{ borderBottom: "1px solid var(--border-subtle)", touchAction: "none" }}
+        onPointerDown={onDragStart}
+        onPointerMove={onDragMove}
+        onPointerUp={onDragEnd}
+        onPointerCancel={onDragEnd}
+      >
+        <div className="flex items-center gap-2">
+          {/* Drag grip dots */}
+          <svg width="12" height="16" viewBox="0 0 12 16" fill="none" style={{ opacity: 0.3 }}>
+            <circle cx="3" cy="3" r="1.5" fill="currentColor" />
+            <circle cx="9" cy="3" r="1.5" fill="currentColor" />
+            <circle cx="3" cy="8" r="1.5" fill="currentColor" />
+            <circle cx="9" cy="8" r="1.5" fill="currentColor" />
+            <circle cx="3" cy="13" r="1.5" fill="currentColor" />
+            <circle cx="9" cy="13" r="1.5" fill="currentColor" />
+          </svg>
+          <div className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>TAG STORE</div>
+        </div>
         <button
-          onPointerDown={(e) => {
-            e.stopPropagation();
-            onClose();
-          }}
-          className="flex items-center justify-center w-5 h-5 rounded transition-colors text-orange-100 hover:text-orange-300"
+          onPointerDown={(e) => { e.stopPropagation(); onClose(); }}
+          className="flex items-center justify-center w-8 h-8 rounded-lg transition-colors text-orange-100 hover:text-orange-300"
+          style={{ fontSize: 16 }}
         >
           ✕
         </button>
       </div>
-      
-      {stores.length === 0 && (
-        <p className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>No stores yet — create one below.</p>
-      )}
-      <div className="space-y-1 mb-2 max-h-44 overflow-y-auto">
-        {stores.map((store) => {
-          const active = itemStoreIds.includes(store.id);
-          return (
-            <button
-              key={store.id}
-              onClick={(e) => { e.stopPropagation(); onToggle(store.id); }}
-              className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-sm transition-colors text-left"
-              style={{ background: active ? store.color + "22" : "transparent" }}
-            >
-              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: store.color }} />
-              <span className="flex-1 truncate" style={{ color: active ? store.color : "var(--text-primary)" }}>{store.name}</span>
-              {active && <span style={{ color: store.color, fontSize: 12 }}>✓</span>}
-            </button>
-          );
-        })}
-      </div>
-      <div className="flex gap-1.5 mt-2 pt-2" style={{ borderTop: "1px solid var(--border-subtle)" }}>
-        <input
-          autoFocus
-          className="flex-1 bg-transparent text-xs outline-none py-1.5 px-2 rounded"
-          style={{ border: "1px solid var(--border)", color: "var(--text-primary)" }}
-          placeholder="New store…"
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && newName.trim()) { onCreateStore(newName.trim()); setNewName(""); }
-            if (e.key === "Escape") onClose();
-          }}
-        />
-        <button
-          onClick={(e) => { e.stopPropagation(); if (newName.trim()) { onCreateStore(newName.trim()); setNewName(""); } }}
-          disabled={!newName.trim()}
-          className="px-2.5 py-1.5 rounded text-xs font-semibold"
-          style={{ background: newName.trim() ? "var(--amber)" : "var(--surface)", color: newName.trim() ? "#0d1117" : "var(--text-muted)" }}
-        >
-          Add
-        </button>
+
+      {/* Body */}
+      <div className="px-3 pb-3 flex flex-col flex-1 overflow-hidden">
+        {stores.length === 0 && (
+          <p className="text-xs mt-2 mb-1 shrink-0" style={{ color: "var(--text-muted)" }}>
+            No stores yet — create one below.
+          </p>
+        )}
+
+        {/* Scrollable store list */}
+        <div className="overflow-y-auto flex-1 space-y-1 mt-2 mb-2">
+          {stores.map((store) => {
+            const active = itemStoreIds.includes(store.id);
+            return (
+              <button
+                key={store.id}
+                onClick={(e) => { e.stopPropagation(); onToggle(store.id); }}
+                className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-sm transition-colors text-left"
+                style={{ background: active ? store.color + "22" : "transparent" }}
+              >
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: store.color }} />
+                <span className="flex-1 truncate" style={{ color: active ? store.color : "var(--text-primary)" }}>
+                  {store.name}
+                </span>
+                {active && <span style={{ color: store.color, fontSize: 12 }}>✓</span>}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Footer */}
+        <div className="flex gap-1.5 pt-2 shrink-0" style={{ borderTop: "1px solid var(--border-subtle)" }}>
+          <input
+            autoFocus
+            className="flex-1 bg-transparent text-xs outline-none py-1.5 px-2 rounded"
+            style={{ border: "1px solid var(--border)", color: "var(--text-primary)" }}
+            placeholder="New store…"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && newName.trim()) { onCreateStore(newName.trim()); setNewName(""); }
+              if (e.key === "Escape") onClose();
+            }}
+          />
+          <button
+            onClick={(e) => { e.stopPropagation(); if (newName.trim()) { onCreateStore(newName.trim()); setNewName(""); } }}
+            disabled={!newName.trim()}
+            className="px-2.5 py-1.5 rounded text-xs font-semibold"
+            style={{
+              background: newName.trim() ? "var(--amber)" : "var(--surface)",
+              color: newName.trim() ? "#0d1117" : "var(--text-muted)",
+            }}
+          >
+            Add
+          </button>
+        </div>
       </div>
     </div>,
     document.body
