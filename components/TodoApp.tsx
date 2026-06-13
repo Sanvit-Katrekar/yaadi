@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useAppState, Store, ItemWithStores, SectionWithStores } from "@/lib/store";
 import NewListModal from "./NewListModal";
@@ -907,12 +908,31 @@ export default function TodoApp() {
               <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs" style={{ color: "var(--text-muted)" }}>🔍</span>
             </div>
             {activeList && (
-              <button
-                onClick={() => uncheckAll(activeList.id)}
-                className="flex items-center justify-center h-9 px-3.5 rounded-xl text-xs font-semibold transition-all hover:opacity-80 active:scale-95"
+              <Link
+                href="/stats"
+                className="flex items-center justify-center h-9 px-3.5 rounded-xl text-sm font-semibold transition-all hover:opacity-80 active:scale-95 gap-1.5"
                 style={{ background: "var(--surface)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}
               >
-                Reset
+                <span>🏆</span>
+                <span className="hidden sm:inline">Stats</span>
+              </Link>
+            )}
+            {activeList && (
+              <button
+                onClick={async () => {
+                  const ok = await confirm({
+                    title: "Reset list?",
+                    message: "This will uncheck all items in the current list.",
+                    confirmLabel: "Reset",
+                    variant: "warning",
+                  });
+                  if (ok) uncheckAll(activeList.id);
+                }}
+                className="flex items-center justify-center h-9 px-3.5 rounded-xl text-sm gap-2 transition-all hover:opacity-80 active:scale-95"
+                style={{ background: "var(--surface)", color: "var(--amber)", border: "1px solid var(--border)" }}
+              >
+                <span>⟲</span>
+                <span className="hidden sm:inline font-semibold">Reset</span>
               </button>
             )}
             {activeList && (

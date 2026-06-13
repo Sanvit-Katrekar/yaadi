@@ -10,7 +10,6 @@ export function proxy(request: NextRequest) {
   const cookieToken = request.cookies.get('access_token')?.value
   const urlToken = searchParams.get('token')
 
-  // Valid token in URL → set cookie and redirect cleanly
   if (urlToken === SECRET_TOKEN) {
     const res = NextResponse.redirect(new URL(pathname, request.url))
     res.cookies.set('access_token', SECRET_TOKEN, {
@@ -24,7 +23,6 @@ export function proxy(request: NextRequest) {
     return res
   }
 
-  // Already authenticated via cookie
   if (cookieToken === SECRET_TOKEN) return NextResponse.next()
 
   return NextResponse.rewrite(new URL('/denied', request.url))
