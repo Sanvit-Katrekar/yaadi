@@ -83,13 +83,13 @@ export function ConfirmDialogProvider() {
   const confirmColors =
     variant === "danger"
       ? { bg: "#E24B4A", hover: "#c73b3a", text: "#fff" }
-      : { bg: "#BA7517", hover: "#9a6010", text: "#fff" };
+      : { bg: "#c17d20", hover: "#a86b19", text: "#fff" };
 
   const iconColors =
     variant === "danger"
       ? { bg: "rgba(226,75,74,0.12)", icon: "#E24B4A" }
-      : { bg: "rgba(186,117,23,0.12)", icon: "#BA7517" };
-
+      : { bg: "var(--amber-dim)", icon: "var(--amber)" };
+      
   const content = (
     <div
       onClick={(e) => { if (e.target === e.currentTarget) handleChoice(false); }}
