@@ -136,6 +136,36 @@ export type Database = {
         }
         Relationships: []
       }
+      section_stores: {
+        Row: {
+          section_id: string
+          store_id: string
+        }
+        Insert: {
+          section_id: string
+          store_id: string
+        }
+        Update: {
+          section_id?: string
+          store_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "section_stores_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "section_stores_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sections: {
         Row: {
           id: string

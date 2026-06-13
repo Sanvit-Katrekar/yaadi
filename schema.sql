@@ -53,6 +53,15 @@ create table if not exists public.list_stores (
   primary key (list_id, store_id)
 );
 
+-- Section tags
+
+create table if not exists public.section_stores (
+  section_id text not null references public.sections(id) on delete cascade,
+  store_id   text not null references public.stores(id) on delete cascade,
+  primary key (section_id, store_id)
+);
+
+
 -- ── Indexes ──────────────────────────────────────────────────
 create index if not exists sections_list_id_idx  on public.sections(list_id);
 create index if not exists items_section_id_idx  on public.items(section_id);
@@ -60,6 +69,8 @@ create index if not exists item_stores_item_idx  on public.item_stores(item_id);
 create index if not exists item_stores_store_idx on public.item_stores(store_id);
 create index if not exists list_stores_list_idx  on public.list_stores(list_id);
 create index if not exists list_stores_store_idx on public.list_stores(store_id);
+create index if not exists section_stores_section_idx on public.section_stores(section_id);
+create index if not exists section_stores_store_idx   on public.section_stores(store_id);
 
 -- ── Auto-update updated_at on lists ─────────────────────────
 create or replace function public.set_updated_at()
@@ -82,3 +93,4 @@ alter publication supabase_realtime add table public.items;
 alter publication supabase_realtime add table public.stores;
 alter publication supabase_realtime add table public.item_stores;
 alter publication supabase_realtime add table public.list_stores;
+alter publication supabase_realtime add table public.section_stores;

@@ -17,12 +17,13 @@ export interface ItemWithStores extends CheckItem {
 
 export interface SectionWithStores extends Omit<Section, "items"> {
   items: ItemWithStores[];
+  storeIds: string[];   // ← NEW
   position?: number;
 }
 
 export interface TodoListWithStores extends Omit<TodoList, "sections"> {
   sections: SectionWithStores[];
-  stores: Store[]; // move here
+  stores: Store[];
 }
 
 interface AppState {
@@ -41,7 +42,8 @@ function buildState(
   rawItems: any[],
   rawItemStores: any[],
   rawStores: any[],
-  rawListStores: any[]
+  rawListStores: any[],
+  rawSectionStores: any[]   // ← NEW
 ): { lists: TodoListWithStores[] } {
 
   const allStores: Record<string, Store> = {};
@@ -60,6 +62,13 @@ function buildState(
   for (const row of rawItemStores) {
     if (!storesByItem[row.item_id]) storesByItem[row.item_id] = [];
     storesByItem[row.item_id].push(row.store_id);
+  }
+
+  // ── NEW: store IDs keyed by section ──────────────────────────────────────
+  const storeIdsBySection: Record<string, string[]> = {};
+  for (const row of rawSectionStores) {
+    if (!storeIdsBySection[row.section_id]) storeIdsBySection[row.section_id] = [];
+    storeIdsBySection[row.section_id].push(row.store_id);
   }
 
   const itemsBySection: Record<string, ItemWithStores[]> = {};
@@ -85,6 +94,7 @@ function buildState(
       id: row.id,
       title: row.title,
       items: itemsBySection[row.id] ?? [],
+      storeIds: storeIdsBySection[row.id] ?? [],   // ← NEW
       position: row.position,
     });
   }
@@ -116,20 +126,12 @@ export function useAppState() {
   const [mounted, setMounted] = useState(false);
   const channelRef = useRef<RealtimeChannel | null>(null);
 
-  // ── Pending mutations counter ─────────────────────────────────────────────
-  // A ref so it never causes re-renders and is always current in closures.
-
-  // Wraps every DB write: increments before, decrements after.
-  // This tells the realtime handler to skip reloading while our own
-  // writes are in-flight, preventing the optimistic state from being
-  // overwritten by a stale DB read.
   const withPending = useCallback(async <T>(fn: () => Promise<T>): Promise<T> => {
     lastMutationAt.current = Date.now();
     try {
       return await fn();
     } finally {
-      // Keep the guard up long enough for the realtime echo to arrive and be ignored.
-      // Realtime events typically fire within 100-300ms of the write completing.
+      // Grace period keeps realtime echo from overwriting optimistic state
     }
   }, []);
 
@@ -146,24 +148,27 @@ export function useAppState() {
       { data: items },
       { data: itemStores },
       { data: stores },
-      { data: listStores }
+      { data: listStores },
+      { data: sectionStores },   // ← NEW
     ] = await Promise.all([
       supabase.from("lists").select("*"),
       supabase.from("sections").select("*"),
       supabase.from("items").select("*"),
       supabase.from("item_stores").select("*"),
       supabase.from("stores").select("*"),
-      supabase.from("list_stores").select("*")
+      supabase.from("list_stores").select("*"),
+      supabase.from("section_stores").select("*"),   // ← NEW
     ]);
 
-    // Re-read fresh after the async gap
     if (!isInitial && Date.now() - lastMutationAt.current < GRACE_MS) {
       console.log("[loadAll] ABORTED after fetch");
       return;
     }
 
     const built = buildState(
-      lists ?? [], sections ?? [], items ?? [], itemStores ?? [], stores ?? [], listStores ?? []
+      lists ?? [], sections ?? [], items ?? [], itemStores ?? [],
+      stores ?? [], listStores ?? [],
+      sectionStores ?? []   // ← NEW
     );
 
     const savedId = localStorage.getItem("activeListId");
@@ -180,7 +185,7 @@ export function useAppState() {
 
   // ── Realtime subscription ─────────────────────────────────────────────────
   useEffect(() => {
-    loadAll(true); // initial load — never skip
+    loadAll(true);
     const channel = supabase
       .channel("db-changes")
       .on("postgres_changes", { event: "*", schema: "public", table: "lists" }, () => loadAll())
@@ -189,6 +194,7 @@ export function useAppState() {
       .on("postgres_changes", { event: "*", schema: "public", table: "item_stores" }, () => loadAll())
       .on("postgres_changes", { event: "*", schema: "public", table: "stores" }, () => loadAll())
       .on("postgres_changes", { event: "*", schema: "public", table: "list_stores" }, () => loadAll())
+      .on("postgres_changes", { event: "*", schema: "public", table: "section_stores" }, () => loadAll())  // ← NEW
       .subscribe();
     channelRef.current = channel;
     return () => { supabase.removeChannel(channel); };
@@ -207,10 +213,10 @@ export function useAppState() {
       stores: [],
       sections: list.sections.map((s) => ({
         ...s,
+        storeIds: [],
         items: s.items.map((i) => ({ ...i, storeIds: [] })),
       })),
     };
-    // Optimistic
     setState((prev) => ({ ...prev, lists: [...prev.lists, listWithStores], activeListId: list.id }));
 
     await withPending(async () => {
@@ -226,7 +232,6 @@ export function useAppState() {
   }, [withPending]);
 
   const deleteList = useCallback(async (listId: string) => {
-    // Optimistic
     setState((prev) => {
       const lists = prev.lists.filter((l) => l.id !== listId);
       return {
@@ -234,14 +239,12 @@ export function useAppState() {
         activeListId: prev.activeListId === listId ? (lists[0]?.id ?? null) : prev.activeListId,
       };
     });
-
     await withPending(async () => supabase.from("lists").delete().eq("id", listId));
   }, [withPending]);
 
   // ─── Item actions ─────────────────────────────────────────────────────────
 
   const toggleItem = useCallback(async (listId: string, sectionId: string, itemId: string) => {
-    // Read current value BEFORE setState, not inside it
     const currentItem = state.lists
       .find(l => l.id === listId)?.sections
       .find(s => s.id === sectionId)?.items
@@ -291,11 +294,9 @@ export function useAppState() {
     );
   }, [withPending, state.lists]);
 
-
   const addItem = useCallback(async (listId: string, sectionId: string, text: string) => {
     const id = Math.random().toString(36).slice(2);
     let position = 0;
-    // Optimistic
     setState((prev) => {
       const list = prev.lists.find((l) => l.id === listId);
       const section = list?.sections.find((s) => s.id === sectionId);
@@ -318,7 +319,6 @@ export function useAppState() {
   }, [withPending]);
 
   const deleteItem = useCallback(async (listId: string, sectionId: string, itemId: string) => {
-    // Optimistic
     setState((prev) => ({
       ...prev,
       lists: prev.lists.map((l) => l.id !== listId ? l : {
@@ -329,14 +329,12 @@ export function useAppState() {
         }),
       }),
     }));
-
     await withPending(async () => supabase.from("items").delete().eq("id", itemId));
   }, [withPending]);
 
   const addSection = useCallback(async (listId: string, title: string) => {
     const id = Math.random().toString(36).slice(2);
     let position = 0;
-    // Optimistic
     setState((prev) => {
       const list = prev.lists.find((l) => l.id === listId);
       position = list?.sections.length ?? 0;
@@ -344,7 +342,7 @@ export function useAppState() {
         ...prev,
         lists: prev.lists.map((l) => l.id !== listId ? l : {
           ...l,
-          sections: [...l.sections, { id, title, items: [] }],
+          sections: [...l.sections, { id, title, items: [], storeIds: [] }],  // ← storeIds: []
         }),
       };
     });
@@ -355,7 +353,6 @@ export function useAppState() {
   }, [withPending]);
 
   const deleteSection = useCallback(async (listId: string, sectionId: string) => {
-    // Optimistic
     setState((prev) => ({
       ...prev,
       lists: prev.lists.map((l) => l.id !== listId ? l : {
@@ -363,7 +360,6 @@ export function useAppState() {
         sections: l.sections.filter((s) => s.id !== sectionId),
       }),
     }));
-
     await withPending(async () => supabase.from("sections").delete().eq("id", sectionId));
   }, [withPending]);
 
@@ -371,7 +367,6 @@ export function useAppState() {
     const list = state.lists.find((l) => l.id === listId);
     if (!list) return;
 
-    // Optimistic
     setState((prev) => ({
       ...prev,
       lists: prev.lists.map((l) => l.id !== listId ? l : {
@@ -395,14 +390,12 @@ export function useAppState() {
 
   const addStore = useCallback(async (name: string, listId: string): Promise<Store> => {
     const id = Math.random().toString(36).slice(2);
-    
-    // Get stores from the target list instead of state.stores
     const listStores = state.lists.find(l => l.id === listId)?.stores ?? [];
     const used = new Set(listStores.map(s => s.color));
     const color =
       STORE_COLORS.find(c => !used.has(c))
       ?? STORE_COLORS[listStores.length % STORE_COLORS.length];
-    
+
     const store: Store = { id, name, color };
 
     setState((prev) => ({
@@ -427,6 +420,7 @@ export function useAppState() {
         stores: l.stores.filter((s) => s.id !== storeId),
         sections: l.sections.map((s) => ({
           ...s,
+          storeIds: s.storeIds.filter((sid) => sid !== storeId),   // ← NEW
           items: s.items.map((i) => ({ ...i, storeIds: i.storeIds.filter((sid) => sid !== storeId) })),
         })),
       }),
@@ -444,7 +438,6 @@ export function useAppState() {
     listId: string, sectionId: string, itemId: string, storeId: string
   ) => {
     let adding = false;
-    // Optimistic
     setState((prev) => ({
       ...prev,
       lists: prev.lists.map((l) => l.id !== listId ? l : {
@@ -468,11 +461,45 @@ export function useAppState() {
     );
   }, [withPending]);
 
+  // ─── NEW: Section store toggle ────────────────────────────────────────────
+  const toggleSectionStore = useCallback(async (
+    listId: string, sectionId: string, storeId: string
+  ) => {
+    let adding = false;
+
+    setState((prev) => ({
+      ...prev,
+      lists: prev.lists.map((l) => l.id !== listId ? l : {
+        ...l,
+        sections: l.sections.map((s) => {
+          if (s.id !== sectionId) return s;
+          const has = s.storeIds.includes(storeId);
+          adding = !has;
+          return {
+            ...s,
+            storeIds: has
+              ? s.storeIds.filter((sid) => sid !== storeId)
+              : [...s.storeIds, storeId],
+          };
+        }),
+      }),
+    }));
+
+    await withPending(async () =>
+      adding
+        ? supabase.from("section_stores").insert({ section_id: sectionId, store_id: storeId })
+        : supabase.from("section_stores").delete()
+            .eq("section_id", sectionId)
+            .eq("store_id", storeId)
+    );
+  }, [withPending]);
+
   return {
     state, mounted,
     setActiveList, addList, deleteList,
     toggleItem, toggleDoNotCarry,
     addItem, deleteItem, addSection, deleteSection, uncheckAll,
     addStore, deleteStore, toggleItemStore,
+    toggleSectionStore,   // ← NEW export
   };
 }

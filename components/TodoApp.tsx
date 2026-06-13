@@ -100,7 +100,6 @@ function StorePopover({
   const dragStartRef = useRef<{ pointerX: number; pointerY: number; top: number; left: number } | null>(null);
 
   const updateCoords = useCallback(() => {
-    // Only set initial coords — don't override if user has dragged
     if (coords !== null) return;
     if (!anchorRef.current) return;
     const rect = anchorRef.current.getBoundingClientRect();
@@ -143,7 +142,6 @@ function StorePopover({
     };
   }, [onClose, anchorRef, dragging]);
 
-  // ── Drag handlers ──────────────────────────────────────────
   function onDragStart(e: React.PointerEvent) {
     if (!coords) return;
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -162,7 +160,6 @@ function StorePopover({
 
   function onDragEnd() {
     dragStartRef.current = null;
-    // Small timeout so the pointerup doesn't immediately trigger onClose
     setTimeout(() => setDragging(false), 50);
   }
 
@@ -197,7 +194,6 @@ function StorePopover({
         onPointerCancel={onDragEnd}
       >
         <div className="flex items-center gap-2">
-          {/* Drag grip dots */}
           <svg width="12" height="16" viewBox="0 0 12 16" fill="none" style={{ opacity: 0.3 }}>
             <circle cx="3" cy="3" r="1.5" fill="currentColor" />
             <circle cx="9" cy="3" r="1.5" fill="currentColor" />
@@ -225,7 +221,6 @@ function StorePopover({
           </p>
         )}
 
-        {/* Scrollable store list */}
         <div className="overflow-y-auto flex-1 space-y-1 mt-2 mb-2">
           {stores.map((store) => {
             const active = itemStoreIds.includes(store.id);
@@ -246,7 +241,6 @@ function StorePopover({
           })}
         </div>
 
-        {/* Footer */}
         <div className="flex gap-1.5 pt-2 shrink-0" style={{ borderTop: "1px solid var(--border-subtle)" }}>
           <input
             autoFocus
@@ -287,9 +281,9 @@ function SwipeableRow({
 }: {
   onAction: () => void;
   actionLabel: string;
-  actionIcon: string;   // emoji for the primary action
+  actionIcon: string;
   actionColor: string;
-  onDelete?: () => void; // optional second action — delete
+  onDelete?: () => void;
   children: React.ReactNode;
 }) {
   const startXRef = useRef<number | null>(null);
@@ -298,8 +292,7 @@ function SwipeableRow({
   const directionLockedRef = useRef<"horizontal" | "vertical" | null>(null);
   const [offset, setOffset] = useState(0);
 
-  // Widen the panel when there are two actions
-  const ACTION_WIDTH = 72;  // width of each action button
+  const ACTION_WIDTH = 72;
   const MAX_SWIPE = onDelete ? ACTION_WIDTH * 2 : ACTION_WIDTH + 10;
   const ACTION_THRESHOLD = MAX_SWIPE * 0.55;
 
@@ -311,10 +304,9 @@ function SwipeableRow({
 
   function onTouchMove(e: React.TouchEvent) {
     if (startXRef.current === null || startYRef.current === null) return;
-    const deltaX = startXRef.current - e.touches[0].clientX; // leftward = positive
+    const deltaX = startXRef.current - e.touches[0].clientX;
     const deltaY = Math.abs(e.touches[0].clientY - startYRef.current);
 
-    // Lock direction after 6px of movement to avoid fighting with scroll
     if (!directionLockedRef.current) {
       if (Math.abs(deltaX) > 6 || deltaY > 6) {
         directionLockedRef.current = Math.abs(deltaX) > deltaY ? "horizontal" : "vertical";
@@ -323,8 +315,6 @@ function SwipeableRow({
     }
 
     if (directionLockedRef.current === "vertical") return;
-
-    // Prevent page scroll while swiping horizontally
     e.preventDefault();
 
     const clamped = Math.max(0, Math.min(deltaX, MAX_SWIPE));
@@ -350,12 +340,10 @@ function SwipeableRow({
 
   return (
     <div className="relative overflow-hidden rounded-xl">
-      {/* Action panel revealed on the right */}
       <div
         className="absolute inset-y-0 right-0 flex items-stretch rounded-xl overflow-hidden"
         style={{ width: MAX_SWIPE }}
       >
-        {/* Primary action */}
         <button
           onPointerDown={(e) => { e.stopPropagation(); onAction(); dismiss(); }}
           className="flex flex-col items-center justify-center gap-1 flex-1 mr-2"
@@ -365,7 +353,6 @@ function SwipeableRow({
           <span className="text-xs font-semibold leading-none">{actionLabel}</span>
         </button>
 
-        {/* Delete action (mobile only — desktop uses the × button) */}
         {onDelete && (
           <button
             onPointerDown={(e) => { e.stopPropagation(); onDelete(); dismiss(); }}
@@ -385,7 +372,6 @@ function SwipeableRow({
         )}
       </div>
 
-      {/* Sliding content */}
       <div
         style={{
           transform: `translateX(-${offset}px)`,
@@ -452,7 +438,6 @@ function ItemRow({
 
   return (
     <div className="flex items-start gap-3 px-2 py-2.5">
-      {/* Checkbox (carry items) or DNC indicator */}
       {dnc ? (
         <span className="shrink-0 mt-0.5 w-6 h-6 flex items-center justify-center select-none text-base">🚫</span>
       ) : (
@@ -486,7 +471,6 @@ function ItemRow({
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
-        {/* Store tag button — larger touch target on mobile */}
         <button
           ref={storeButtonRef}
           onPointerDown={(e) => { e.stopPropagation(); setShowStorePopover((v) => !v); }}
@@ -508,7 +492,6 @@ function ItemRow({
           />
         )}
 
-        {/* Desktop-only: DNC toggle */}
         <button
           onPointerDown={(e) => { e.stopPropagation(); onToggleDoNotCarry(sectionId, item.id); }}
           className="hidden sm:flex opacity-40 hover:opacity-100 transition-opacity items-center justify-center w-8 h-8 rounded-lg"
@@ -522,7 +505,6 @@ function ItemRow({
           🚫
         </button>
 
-        {/* Desktop-only: delete button (mobile uses swipe) */}
         <button
           onClick={handleDeleteItem}
           className="hidden sm:flex items-center justify-center w-8 h-8 opacity-40 hover:opacity-100 active:opacity-100 transition-opacity rounded-lg"
@@ -542,7 +524,7 @@ function ItemRow({
 
 function SectionBlock({
   section, listId, stores, activeStoreFilter, onToggle, onAddItem, onDeleteItem,
-  onToggleStore, onCreateStore, onDeleteSection, onToggleDoNotCarry,
+  onToggleStore, onCreateStore, onDeleteSection, onToggleDoNotCarry, onToggleSectionStore,
 }: {
   section: SectionWithStores;
   listId: string;
@@ -555,10 +537,15 @@ function SectionBlock({
   onCreateStore: (name: string) => Promise<Store>;
   onDeleteSection: (sectionId: string) => void;
   onToggleDoNotCarry: (sId: string, iId: string) => void;
+  onToggleSectionStore: (sId: string, storeId: string) => void;  // ← NEW
 }) {
   const confirm = useConfirm();
   const [collapsed, setCollapsed] = useState(false);
   const isMobile = useIsMobile();
+
+  // ── Section-level store popover state ─────────────────────────────────────
+  const [showSectionStorePopover, setShowSectionStorePopover] = useState(false);
+  const sectionStoreButtonRef = useRef<HTMLButtonElement>(null);
 
   const visibleItems = activeStoreFilter
     ? section.items.filter((i) => i.storeIds.includes(activeStoreFilter))
@@ -571,6 +558,9 @@ function SectionBlock({
   const done = visibleItems.filter((i) => i.checked).length;
   const total = visibleItems.length;
 
+  // Stores currently tagged on this section
+  const sectionTaggedStores = stores.filter((s) => section.storeIds.includes(s.id));
+
   async function handleDeleteSection() {
     const ok = await confirm({
       title: `Delete "${section.title}"?`,
@@ -581,40 +571,101 @@ function SectionBlock({
     if (ok) onDeleteSection(section.id);
   }
 
+  async function handleCreateStoreForSection(name: string) {
+    const store = await onCreateStore(name);
+    onToggleSectionStore(section.id, store.id);
+  }
+
+  async function handleRemoveSectionStorePill(store: Store) {
+    const ok = await confirm({
+      title: "Remove store tag",
+      message: `Remove "${store.name}" from section "${section.title}"?`,
+      confirmLabel: "Remove",
+      variant: "warning",
+    });
+    if (ok) onToggleSectionStore(section.id, store.id);
+  }
+
   return (
     <div className="animate-slide-in mb-4 rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border-subtle)" }}>
-      <div className="flex items-center gap-3 px-4 py-3.5" style={{ background: "var(--surface)" }}>
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="flex items-center gap-3 flex-1 min-w-0 text-left"
-        >
-          <svg width="14" height="14" viewBox="0 0 14 14"
-            style={{ color: "var(--text-muted)", transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)", transition: "transform 0.2s ease", flexShrink: 0 }}
-          >
-            <path d="M2 4l5 5 5-5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <span className="text-sm font-semibold truncate" style={{ color: "var(--text-primary)" }}>{section.title}</span>
-        </button>
-        <div className="flex items-center gap-2 shrink-0">
-          <span
-            className="text-xs px-2.5 py-1 rounded-full font-semibold"
-            style={{
-              background: done === total && total > 0 ? "var(--green-dim)" : "var(--amber-dim)",
-              color: done === total && total > 0 ? "var(--green)" : "var(--amber)",
-            }}
-          >
-            {done}/{total}
-          </span>
+      {/* ── Section header ── */}
+      <div className="px-4 py-3.5" style={{ background: "var(--surface)" }}>
+        <div className="flex items-center gap-3">
           <button
-            onClick={(e) => { e.stopPropagation(); handleDeleteSection(); }}
-            className="flex items-center justify-center w-8 h-8 rounded-lg transition-all hover:opacity-100 active:scale-95"
-            style={{ color: "var(--red)", background: "rgba(248,81,73,0.1)", border: "1px solid rgba(248,81,73,0.25)", opacity: 0.75 }}
+            onClick={() => setCollapsed(!collapsed)}
+            className="flex items-center gap-3 flex-1 min-w-0 text-left"
           >
-            <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-              <path d="M2 2l9 9M11 2l-9 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            <svg width="14" height="14" viewBox="0 0 14 14"
+              style={{ color: "var(--text-muted)", transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)", transition: "transform 0.2s ease", flexShrink: 0 }}
+            >
+              <path d="M2 4l5 5 5-5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
+            <span className="text-sm font-semibold truncate" style={{ color: "var(--text-primary)" }}>{section.title}</span>
           </button>
+
+          <div className="flex items-center gap-2 shrink-0">
+
+            {/* ── Section store tag button ── */}
+            <button
+              ref={sectionStoreButtonRef}
+              onPointerDown={(e) => { e.stopPropagation(); setShowSectionStorePopover((v) => !v); }}
+              className="flex items-center justify-center w-8 h-8 rounded-lg transition-all hover:opacity-100 active:scale-95"
+              style={{
+                color: sectionTaggedStores.length > 0 ? "var(--amber)" : "var(--text-muted)",
+                background: sectionTaggedStores.length > 0 ? "var(--amber-dim)" : "transparent",
+                border: `1px solid ${sectionTaggedStores.length > 0 ? "var(--amber-glow)" : "var(--border)"}`,
+                opacity: sectionTaggedStores.length > 0 ? 1 : 0.5,
+              }}
+              title="Tag section to a store"
+            >
+              🏷️
+            </button>
+
+            <span
+              className="text-xs px-2.5 py-1 rounded-full font-semibold"
+              style={{
+                background: done === total && total > 0 ? "var(--green-dim)" : "var(--amber-dim)",
+                color: done === total && total > 0 ? "var(--green)" : "var(--amber)",
+              }}
+            >
+              {done}/{total}
+            </span>
+
+            {showSectionStorePopover && (
+              <StorePopover
+                stores={stores}
+                itemStoreIds={section.storeIds}
+                onToggle={(storeId) => onToggleSectionStore(section.id, storeId)}
+                onCreateStore={handleCreateStoreForSection}
+                onClose={() => setShowSectionStorePopover(false)}
+                anchorRef={sectionStoreButtonRef}
+              />
+            )}
+
+            <button
+              onClick={(e) => { e.stopPropagation(); handleDeleteSection(); }}
+              className="flex items-center justify-center w-8 h-8 rounded-lg transition-all hover:opacity-100 active:scale-95"
+              style={{ color: "var(--red)", background: "rgba(248,81,73,0.1)", border: "1px solid rgba(248,81,73,0.25)", opacity: 0.75 }}
+            >
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                <path d="M2 2l9 9M11 2l-9 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
         </div>
+
+        {/* ── Section store pills ── */}
+        {sectionTaggedStores.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-2 pl-5">
+            {sectionTaggedStores.map((store) => (
+              <StorePill
+                key={store.id}
+                store={store}
+                onRemove={() => handleRemoveSectionStorePill(store)}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {!collapsed && (
@@ -753,6 +804,7 @@ export default function TodoApp() {
     deleteSection, uncheckAll, deleteItem,
     addStore, deleteStore, toggleItemStore,
     toggleDoNotCarry,
+    toggleSectionStore,   // ← NEW
   } = useAppState();
 
   const confirm = useConfirm();
@@ -928,11 +980,11 @@ export default function TodoApp() {
                   });
                   if (ok) uncheckAll(activeList.id);
                 }}
-                className="flex items-center justify-center h-9 px-3.5 rounded-xl text-sm gap-2 transition-all hover:opacity-80 active:scale-95"
+                className="flex items-center justify-center h-9 px-3.5 rounded-xl gap-2 transition-all hover:opacity-80 active:scale-95"
                 style={{ background: "var(--surface)", color: "var(--amber)", border: "1px solid var(--border)" }}
               >
-                <span>⟲</span>
-                <span className="hidden sm:inline font-semibold">Reset</span>
+                <span className="text-lg sm:text-sm">⟲</span>
+                <span className="hidden sm:inline font-semibold text-sm">Reset</span>
               </button>
             )}
             {activeList && (
@@ -1024,6 +1076,7 @@ export default function TodoApp() {
                     onToggleStore={(sId, iId, storeId) => toggleItemStore(activeList.id, sId, iId, storeId)}
                     onCreateStore={createStore}
                     onToggleDoNotCarry={(sId, iId) => toggleDoNotCarry(activeList.id, sId, iId)}
+                    onToggleSectionStore={(sId, storeId) => toggleSectionStore(activeList.id, sId, storeId)}
                   />
                 ))}
 
