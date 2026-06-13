@@ -523,13 +523,14 @@ function ItemRow({
 // ─── Section block ────────────────────────────────────────────────────────────
 
 function SectionBlock({
-  section, listId, stores, activeStoreFilter, onToggle, onAddItem, onDeleteItem,
+  section, listId, stores, activeStoreFilter, checkFilter, onToggle, onAddItem, onDeleteItem,
   onToggleStore, onCreateStore, onDeleteSection, onToggleDoNotCarry, onToggleSectionStore,
 }: {
   section: SectionWithStores;
   listId: string;
   stores: Store[];
   activeStoreFilter: string | null;
+  checkFilter: "all" | "unchecked" | "checked";
   onToggle: (sId: string, iId: string) => void;
   onAddItem: (sId: string, text: string) => void;
   onDeleteItem: (sId: string, iId: string) => void;
@@ -547,11 +548,20 @@ function SectionBlock({
   const [showSectionStorePopover, setShowSectionStorePopover] = useState(false);
   const sectionStoreButtonRef = useRef<HTMLButtonElement>(null);
 
-  const visibleItems = activeStoreFilter
-    ? section.items.filter((i) => i.storeIds.includes(activeStoreFilter))
-    : section.items;
+  const visibleItems = section.items.filter((item) => {
+    const storeMatch =
+      !activeStoreFilter ||
+      item.storeIds.includes(activeStoreFilter);
 
-  if (activeStoreFilter && visibleItems.length === 0) return null;
+    const checkMatch =
+      checkFilter === "all" ||
+      (checkFilter === "checked" && item.checked) ||
+      (checkFilter === "unchecked" && !item.checked);
+
+    return storeMatch && checkMatch;
+  });
+
+  if (visibleItems.length === 0) return null;
 
   const carryItems = visibleItems.filter((i) => !i.doNotCarry);
   const doNotItems = visibleItems.filter((i) => i.doNotCarry);
@@ -815,6 +825,9 @@ export default function TodoApp() {
   const [searchQ, setSearchQ] = useState("");
   const [activeStoreFilter, setActiveStoreFilter] = useState<string | null>(null);
 
+  type CheckFilter = "all" | "unchecked" | "checked";
+  const [checkFilter, setCheckFilter] = useState<CheckFilter>("all");
+
   const activeList = useMemo(
     () => state.lists.find((l) => l.id === state.activeListId) ?? state.lists[0] ?? null,
     [state]
@@ -1012,6 +1025,81 @@ export default function TodoApp() {
         )}
 
         {activeList && (
+          <div
+            className="flex items-center gap-2 px-4 lg:px-8 py-3 overflow-x-auto scrollbar-thin shrink-0"
+            style={{
+              borderBottom: "1px solid var(--border-subtle)",
+              background: "var(--background)",
+            }}
+          >
+            <span
+              className="text-xs font-semibold shrink-0"
+              style={{ color: "var(--text-muted)" }}
+            >
+              Status:
+            </span>
+
+            <button
+              onClick={() => setCheckFilter("all")}
+              className="px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all shrink-0 active:scale-95"
+              style={{
+                background: checkFilter === "all" ? "var(--amber)" : "var(--surface)",
+                color: checkFilter === "all" ? "#0d1117" : "var(--text-secondary)",
+                border: `1.5px solid ${
+                  checkFilter === "all" ? "var(--amber)" : "var(--border)"
+                }`,
+              }}
+            >
+              All
+            </button>
+
+            <button
+              onClick={() => setCheckFilter("unchecked")}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all shrink-0 active:scale-95"
+              style={{
+                background:
+                  checkFilter === "unchecked"
+                    ? "rgba(248, 158, 11, 0.18)"
+                    : "var(--surface)",
+                color:
+                  checkFilter === "unchecked"
+                    ? "var(--amber)"
+                    : "var(--text-secondary)",
+                border: `1.5px solid ${
+                  checkFilter === "unchecked"
+                    ? "var(--amber)"
+                    : "var(--border)"
+                }`,
+              }}
+            >
+              Pending
+            </button>
+
+            <button
+              onClick={() => setCheckFilter("checked")}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all shrink-0 active:scale-95"
+              style={{
+                background:
+                  checkFilter === "checked"
+                    ? "rgba(16, 185, 129, 0.18)"
+                    : "var(--surface)",
+                color:
+                  checkFilter === "checked"
+                    ? "var(--green)"
+                    : "var(--text-secondary)",
+                border: `1.5px solid ${
+                  checkFilter === "checked"
+                    ? "var(--green)"
+                    : "var(--border)"
+                }`,
+              }}
+            >
+              Completed
+            </button>
+          </div>
+        )}
+
+        {activeList && (
           <StoreFilterBar
             stores={activeList.stores}
             activeFilter={activeStoreFilter}
@@ -1069,6 +1157,7 @@ export default function TodoApp() {
                     listId={activeList.id}
                     stores={activeList.stores}
                     activeStoreFilter={activeStoreFilter}
+                    checkFilter={checkFilter}
                     onToggle={(sId, iId) => toggleItem(activeList.id, sId, iId)}
                     onAddItem={(sId, text) => addItem(activeList.id, sId, text)}
                     onDeleteItem={(sId, iId) => deleteItem(activeList.id, sId, iId)}
