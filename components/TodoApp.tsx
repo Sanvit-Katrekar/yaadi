@@ -7,6 +7,7 @@ import AddItemRow from "./AddItemRow";
 import ReactDOM from "react-dom";
 import { useConfirm } from "./ConfirmDialog";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import Linkify from "linkify-react";
 
 function ProgressRing({ pct }: { pct: number }) {
   const r = 16;
@@ -391,6 +392,116 @@ function SwipeableRow({
   );
 }
 
+// Linkified Text
+
+function LinkifiedText({ text }: { text: string }) {
+  return (
+    <Linkify
+      options={{
+        target: "_blank",
+        rel: "noopener noreferrer",
+        render: {
+          url: ({ attributes, content }) => {
+            let host = content;
+
+            try {
+              host = new URL(content).hostname.replace(/^www\./, "");
+            } catch {}
+
+            return (
+              <a
+                {...attributes}
+                className="flex items-center justify-between rounded-xl px-3 py-2 mt-2"
+                style={{
+                  background: "var(--surface-elevated)",
+                  border: "1px solid var(--amber-glow)",
+                  color: "var(--text-primary)",
+                  textDecoration: "none",
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <span style={{ fontSize: 18 }}>🔗</span>
+                  <div>
+                    <div
+                      className="text-xs"
+                      style={{ color: "var(--text-muted)" }}
+                    >
+                      Open Link
+                    </div>
+                    <div
+                      className="text-sm font-semibold"
+                      style={{ color: "var(--amber)" }}
+                    >
+                      {host}
+                    </div>
+                  </div>
+                </div>
+
+                <span
+                  style={{
+                    color: "var(--text-muted)",
+                    fontSize: 18,
+                  }}
+                >
+                  ↗
+                </span>
+              </a>
+            );
+          },
+          email: ({ attributes, content }) => {
+            const [, domain = ""] = content.split("@");
+
+            return (
+              <a
+                {...attributes}
+                className="flex items-center justify-between rounded-xl px-3 py-2 mt-2"
+                style={{
+                  background: "var(--surface-elevated)",
+                  border: "1px solid var(--amber-glow)",
+                  color: "var(--text-primary)",
+                  textDecoration: "none",
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <span style={{ fontSize: 18 }}>✉️</span>
+
+                  <div>
+                    <div
+                      className="text-xs"
+                      style={{ color: "var(--text-muted)" }}
+                    >
+                      Send Email
+                    </div>
+
+                    <div
+                      className="text-sm font-semibold"
+                      style={{ color: "var(--amber)" }}
+                    >
+                      {content}
+                    </div>
+                  </div>
+                </div>
+
+                <span
+                  style={{
+                    color: "var(--text-muted)",
+                    fontSize: 18,
+                  }}
+                >
+                  ↗
+                </span>
+              </a>
+            );
+          },
+        },
+      }}
+    >
+      {text}
+    </Linkify>
+  );
+}
+
+
 // ─── Item row ────────────────────────────────────────────────────────────────
 
 function ItemRow({
@@ -451,7 +562,7 @@ function ItemRow({
 
       <div className="flex-1 min-w-0">
         <span
-          className="text-base sm:text-sm leading-snug"
+          className="text-base sm:text-sm leading-snug break-words"
           style={{
             color: item.checked ? "var(--text-muted)" : "var(--text-primary)",
             textDecoration: item.checked ? "line-through" : "none",
@@ -459,7 +570,7 @@ function ItemRow({
             transition: "all 0.15s ease",
           }}
         >
-          {item.text}
+          <LinkifiedText text={item.text} />
         </span>
         {itemStores.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-1.5">
