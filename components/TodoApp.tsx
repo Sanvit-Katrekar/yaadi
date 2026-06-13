@@ -549,8 +549,14 @@ function SectionBlock({
   const sectionStoreButtonRef = useRef<HTMLButtonElement>(null);
 
   const visibleItems = section.items.filter((item) => {
+
+    const sectionMatchesStore =
+      activeStoreFilter !== null &&
+      section.storeIds.includes(activeStoreFilter);
+
     const storeMatch =
       !activeStoreFilter ||
+      sectionMatchesStore ||
       item.storeIds.includes(activeStoreFilter);
 
     const checkMatch =
